@@ -16,6 +16,7 @@ app.use(express.json());
 const { Pool } = pg;
 
 const DATABASE_URL: string | undefined = process.env.DATABASE_URL;
+console.log(DATABASE_URL)
 
 if (!DATABASE_URL) {
   throw new Error("DATABASE_URL is not defined in environment variables");
