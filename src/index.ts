@@ -28,10 +28,21 @@ const pool = new Pool({
 
 const adapter = new PrismaPg(pool);
 
-const prisma = new PrismaClient({
-  adapter,
-  log: ["query", "error", "warn"],
-});
+const createPrismaClient = () =>
+  new PrismaClient({
+    adapter,
+    log: ["query", "error", "warn"],
+  });
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
 
 app.get("/health", async (_req: Request, res: Response) => {
   try {
@@ -116,11 +127,23 @@ app.get("/users", async (_req: Request, res: Response) => {
 /**
  * Graceful shutdown
  */
-process.on("SIGTERM", async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
-
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+const shutdown = async (signal: string) => {
+  console.log(`${signal} received: shutting down`);
+  server.close(async () => {
+    try {
+      await prisma.$disconnect();
+      await pool.end();
+    } catch (error) {
+      console.error("Error during shutdown", error);
+    } finally {
+      process.exit(0);
+    }
+  });
+};
+
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
