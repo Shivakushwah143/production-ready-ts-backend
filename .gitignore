@@ -8,3 +8,6 @@ node_modules
 .env
 .env.development
 .env.production
+
+
+# ssh -i shiva.pem ubuntu@54.160.51.250
