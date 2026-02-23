@@ -1,0 +1,38 @@
+name: Dev Deploy
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/dev_key.pem
+          chmod 600 ~/.ssh/dev_key.pem
+
+      - name: Deploy to Dev EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/dev_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          
+            cd production-ready-ts-backend
+
+            git fetch origin
+            git checkout dev
+            git pull origin dev
+
+            npm install
+            npx prisma generate
+            npm run build
+
+            pm2 restart backend-dev || pm2 start npm --name backend-dev -- run start:dev
+
+          EOF
